@@ -14,11 +14,9 @@ if not os.path.exists(DATA_FILE):
     st.error(f"Missing '{DATA_FILE}'. Please add it to the app root directory.")
     st.stop()
 
-# Load the data
 with open(DATA_FILE, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-# Build the graph with attributes
 G_full = nx.DiGraph()
 node_attrs = {}
 for node in data["nodes"]:
@@ -51,7 +49,11 @@ def build_figure(up_to_step):
 
     try:
         pos = nx.nx_agraph.graphviz_layout(G, prog='dot')
-    except Exception:
+    except Exception as e:
+        st.warning(
+            "Graphviz layout could not be computed. This may be because Graphviz or pygraphviz is not installed on the server. "
+            "Falling back to spring_layout (visual result may differ)."
+        )
         pos = nx.spring_layout(G, seed=42)
 
     edge_x, edge_y = [], []
@@ -60,11 +62,6 @@ def build_figure(up_to_step):
         x1, y1 = pos[tgt]
         edge_x += [x0, x1, None]
         edge_y += [y0, y1, None]
-
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y, mode='lines',
-        line=dict(width=1, color='gray'), hoverinfo='none'
-    )
 
     node_x, node_y, node_text, node_size, node_color = [], [], [], [], []
     for node in G.nodes():
@@ -86,6 +83,11 @@ def build_figure(up_to_step):
         marker=dict(size=node_size, color=node_color, line=dict(width=1, color='black'))
     )
 
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y, mode='lines',
+        line=dict(width=1, color='gray'), hoverinfo='none'
+    )
+
     fig = go.Figure(
         data=[edge_trace, node_trace],
         layout=go.Layout(
@@ -102,7 +104,6 @@ def build_figure(up_to_step):
     )
     return fig
 
-# Streamlit UI for selecting step
 step = st.slider("Select Step", min_value=min_step, max_value=max_step, value=min_step)
 fig = build_figure(step)
 st.plotly_chart(fig, use_container_width=True)
